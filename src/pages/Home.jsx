@@ -9,18 +9,55 @@ export default function Home() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState(null);
   const [saldo, setSaldo] = useState(null);
+  const [cotacao, setCotacao] = useState(null);
+  const [expandido, setExpandido] = useState(false);
+  
+  async function pegarCotacaoDolarData(data) {
+    const dia = String(data.getDate()).padStart(2, '0');
+    const mes = String(data.getMonth() + 1).padStart(2, '0');
+    const ano = data.getFullYear();
 
-  const logos = {
-    "AAPL": "https://logo.clearbit.com/apple.com",
-    "MSFT": "https://logo.clearbit.com/microsoft.com",
-    "GOOGL": "https://logo.clearbit.com/google.com",
-    "AMZN": "https://logo.clearbit.com/amazon.com",
-    "TSLA": "https://logo.clearbit.com/tesla.com",
+    const dataFormatada = `${dia}-${mes}-${ano}`;
+    const url = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarDia(dataCotacao=@dataCotacao)?@dataCotacao='${dataFormatada}'&$format=json`;
+
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Erro na requisição: ${response.status}`);
+    return response.json();
+  }
+
+  async function pegarCotacaoDolarHojeOuAnterior() {
+    let data = new Date();
+    let tentativas = 0;
+
+    while (tentativas < 7) {  
+      const diaSemana = data.getDay();
+      if (diaSemana !== 0 && diaSemana !== 6) {
+        try {
+          const dataResponse = await pegarCotacaoDolarData(data);
+          if (dataResponse.value && dataResponse.value.length > 0) {
+            return dataResponse.value[0];
+          }
+        } catch (e) {
+          console.error('Erro ao buscar cotação:', e);
+        }
+      }
+      data.setDate(data.getDate() - 1);
+      tentativas++;
+    }
+
+    return null; 
+  }
+
+  const limitarTexto = (texto, limite = 150) => {
+    if (!texto) return "";
+    if (texto.length <= limite) return texto;
+    return texto.slice(0, limite) + "...";
   };
 
   useEffect(() => {
     listarAcoes()
       .then(res => {
+        console.log(res.data)
         setLista(res.data);
       })
       .catch(err => {
@@ -34,7 +71,19 @@ export default function Home() {
         setSaldo(res.data.saldo_disponivel);
       })
       .catch(err => console.log("Erro ao buscar saldo", err));
+    pegarCotacaoDolarHojeOuAnterior()
+      .then(res => {
+        setCotacao(res);
+      })
+      .catch(err => console.log("Erro ao buscar cotação", err));
   }, []);
+
+  const convertFormatDollar = (value) => {
+    if (!cotacao || !cotacao.cotacaoVenda) return 'R$ 0,00';
+    return `R$ ${(value * cotacao.cotacaoVenda).toFixed(2)}`;
+  };
+
+  const toggleExpandir = () => setExpandido(!expandido);
 
   return (
     <MainLayout>
@@ -48,7 +97,13 @@ export default function Home() {
         )}
       </Styled.Header>
 
-      {carregando && <p>Carregando...</p>}
+      {carregando && (
+        <Styled.LoadingWrapper>
+          <Styled.LoadingBar />
+          <Styled.LoadingText>Buscando ações e atualizando mercado...</Styled.LoadingText>
+        </Styled.LoadingWrapper>
+      )}
+
       {erro && <p>{erro}</p>}
 
       <Styled.Grid>
@@ -56,19 +111,23 @@ export default function Home() {
           <Styled.Card key={i} $variacao={acao.variacao}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
               <img
-                src={logos[acao.ticker.replace(".SA", "")] || "/default-logo.png"}
+                src={`https://logo.clearbit.com/${acao.ticker.replace(".SA", "").toLowerCase()}.com`}
                 alt={acao.ticker}
+                onError={(e) => { e.currentTarget.src = "/logo.png"; }}
                 style={{ width: 32, height: 32, borderRadius: "50%", marginRight: 10 }}
               />
               <Styled.Ticker>{acao.ticker}</Styled.Ticker>
             </div>
-            <Styled.Preco>R$ {acao.preco.toFixed(2)}</Styled.Preco>
+            <Styled.Preco>{convertFormatDollar(acao.preco)}</Styled.Preco>
             <Styled.Variacao $variacao={acao.variacao}>
               {acao.variacao > 0 && <TrendingUp size={16} />}
               {acao.variacao < 0 && <TrendingDown size={16} />}
               {acao.variacao === 0 && <Minus size={16} />}
               {acao.variacao}%
             </Styled.Variacao>
+            <Styled.Descricao onClick={toggleExpandir} style={{ cursor: "pointer" }}>
+              {expandido ? acao.descricao : limitarTexto(acao.descricao)}
+            </Styled.Descricao>
           </Styled.Card>
         ))}
       </Styled.Grid>
@@ -77,6 +136,57 @@ export default function Home() {
 }
 
 const Styled = {
+  Descricao: styled.p`
+    font-size: 14px;
+    color: #a4b0be;
+    margin-bottom: 10px;
+  `,
+
+  LoadingWrapper: styled.div`
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 40px 0;
+  `,
+
+  LoadingBar: styled.div`
+    width: 80%;
+    height: 8px;
+    background: #2f3640;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+
+    &::before {
+      content: "";
+      position: absolute;
+      height: 100%;
+      width: 40%;
+      background: linear-gradient(90deg, #00ffab, #00b894);
+      animation: loading 1.5s infinite;
+    }
+
+    @keyframes loading {
+      0% {
+        left: -40%;
+      }
+      50% {
+        left: 30%;
+      }
+      100% {
+        left: 100%;
+      }
+    }
+  `,
+
+  LoadingText: styled.p`
+    margin-top: 12px;
+    color: #24262cff;
+    font-size: 14px;
+    font-style: italic;
+  `,
+
   Header: styled.div`
     display: flex;
     justify-content: space-between;
