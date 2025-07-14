@@ -12,7 +12,7 @@ export const executar = async (dados) => {
     return await api.post('/executar', dados);
 };  
 
-export const listarAcoes = async () => {
-    return await api.get('/acoes');
+export const listarAcoes = async (limit) => {
+    return await api.get(`/acoes/${limit}`);
   };
   

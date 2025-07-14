@@ -55,7 +55,7 @@ export default function Home() {
   };
 
   useEffect(() => {
-    listarAcoes()
+    listarAcoes(10)
       .then(res => {
         console.log(res.data)
         setLista(res.data);
