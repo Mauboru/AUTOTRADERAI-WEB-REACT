@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import styled from "styled-components";
 import MainLayout from "../layouts/MainLayout";
-import { listarAcoes, getSaldo } from "../services/analise";
+import { getStocks } from "../services/analysis";
+import { getSaldo } from "../services/balance";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 export default function Home() {
@@ -9,44 +10,7 @@ export default function Home() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState(null);
   const [saldo, setSaldo] = useState(null);
-  const [cotacao, setCotacao] = useState(null);
   const [expandido, setExpandido] = useState(false);
-  
-  async function pegarCotacaoDolarData(data) {
-    const dia = String(data.getDate()).padStart(2, '0');
-    const mes = String(data.getMonth() + 1).padStart(2, '0');
-    const ano = data.getFullYear();
-
-    const dataFormatada = `${dia}-${mes}-${ano}`;
-    const url = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarDia(dataCotacao=@dataCotacao)?@dataCotacao='${dataFormatada}'&$format=json`;
-
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Erro na requisição: ${response.status}`);
-    return response.json();
-  }
-
-  async function pegarCotacaoDolarHojeOuAnterior() {
-    let data = new Date();
-    let tentativas = 0;
-
-    while (tentativas < 7) {  
-      const diaSemana = data.getDay();
-      if (diaSemana !== 0 && diaSemana !== 6) {
-        try {
-          const dataResponse = await pegarCotacaoDolarData(data);
-          if (dataResponse.value && dataResponse.value.length > 0) {
-            return dataResponse.value[0];
-          }
-        } catch (e) {
-          console.error('Erro ao buscar cotação:', e);
-        }
-      }
-      data.setDate(data.getDate() - 1);
-      tentativas++;
-    }
-
-    return null; 
-  }
 
   const limitarTexto = (texto, limite = 150) => {
     if (!texto) return "";
@@ -55,12 +19,12 @@ export default function Home() {
   };
 
   useEffect(() => {
-    listarAcoes(10)
+    getStocks()
       .then(res => {
-        console.log(res.data)
         setLista(res.data);
       })
       .catch(err => {
+        console.log(err);
         setErro("Erro ao buscar ações");
       })
       .finally(() => {
@@ -68,20 +32,10 @@ export default function Home() {
       });
     getSaldo()
       .then(res => {
-        setSaldo(res.data.saldo_disponivel);
+        setSaldo(res.data.value);
       })
       .catch(err => console.log("Erro ao buscar saldo", err));
-    pegarCotacaoDolarHojeOuAnterior()
-      .then(res => {
-        setCotacao(res);
-      })
-      .catch(err => console.log("Erro ao buscar cotação", err));
   }, []);
-
-  const convertFormatDollar = (value) => {
-    if (!cotacao || !cotacao.cotacaoVenda) return 'R$ 0,00';
-    return `R$ ${(value * cotacao.cotacaoVenda).toFixed(2)}`;
-  };
 
   const toggleExpandir = () => setExpandido(!expandido);
 
@@ -92,7 +46,7 @@ export default function Home() {
         {saldo !== null && (
           <Styled.SaldoBox>
             <p>Saldo disponível</p>
-            <h2>R$ {saldo.toFixed(2)}</h2>
+            <h2>R$ {saldo}</h2>
           </Styled.SaldoBox>
         )}
       </Styled.Header>
@@ -118,15 +72,15 @@ export default function Home() {
               />
               <Styled.Ticker>{acao.ticker}</Styled.Ticker>
             </div>
-            <Styled.Preco>{convertFormatDollar(acao.preco)}</Styled.Preco>
-            <Styled.Variacao $variacao={acao.variacao}>
-              {acao.variacao > 0 && <TrendingUp size={16} />}
-              {acao.variacao < 0 && <TrendingDown size={16} />}
-              {acao.variacao === 0 && <Minus size={16} />}
-              {acao.variacao}%
+            <Styled.Preco>{acao.price}</Styled.Preco>
+            <Styled.Variacao $variation={acao.variation}>
+              {acao.variation > 0 && <TrendingUp size={16} />}
+              {acao.variation < 0 && <TrendingDown size={16} />}
+              {acao.variation === 0 && <Minus size={16} />}
+              {acao.variation}%
             </Styled.Variacao>
             <Styled.Descricao onClick={toggleExpandir} style={{ cursor: "pointer" }}>
-              {expandido ? acao.descricao : limitarTexto(acao.descricao)}
+              {expandido ? acao.description : limitarTexto(acao.description)}
             </Styled.Descricao>
           </Styled.Card>
         ))}

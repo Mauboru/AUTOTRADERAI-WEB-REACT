@@ -1,39 +1,47 @@
-import { styled } from "styled-components";
+import { styled, keyframes } from "styled-components";
 import { useNavigate, useLocation } from "react-router-dom";
-import { FaHome, FaSearch, FaPlusCircle, FaChartPie, FaUser } from "react-icons/fa";
+import { useState } from "react";
+import { FaHome, FaSearch, FaPlusCircle, FaChartPie, FaUser, FaSpinner } from "react-icons/fa";
 
 export default function Footer() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [spinning, setSpinning] = useState(false);
 
   const isActive = (path) => location.pathname === path;
 
+  const handleReload = () => {
+    setSpinning(true);
+    setTimeout(() => {
+      window.location.reload();
+    }, 2000);
+  };
+
   return (
     <Styled.FooterContainer>
-      <Styled.FooterButton onClick={() => navigate("/buscar")} $active={isActive("/buscar")}>
+      {/* <Styled.FooterButton onClick={() => navigate("/buscar")} $active={isActive("/buscar")}>
         <FaSearch />
         <Styled.Label>Buscar</Styled.Label>
-      </Styled.FooterButton>
+      </Styled.FooterButton> */}
 
-      <Styled.FooterButton onClick={() => navigate("/inserir")} $active={isActive("/inserir")}>
+      {/* <Styled.FooterButton onClick={() => navigate("/inserir")} $active={isActive("/inserir")}>
         <FaPlusCircle />
         <Styled.Label>Inserir</Styled.Label>
+      </Styled.FooterButton> */}
+
+      <Styled.FooterButton onClick={handleReload} $active={isActive("/")}>
+        {spinning ? <RotatingSpinner /> : <FaSpinner />}
       </Styled.FooterButton>
 
-      <Styled.FooterButton onClick={() => navigate("/")} $active={isActive("/")}>
-        <FaHome />
-        <Styled.Label>Home</Styled.Label>
-      </Styled.FooterButton>
-
-      <Styled.FooterButton onClick={() => navigate("/dashboards")} $active={isActive("/dashboards")}>
+      {/* <Styled.FooterButton onClick={() => navigate("/dashboards")} $active={isActive("/dashboards")}>
         <FaChartPie />
         <Styled.Label>Gráficos</Styled.Label>
-      </Styled.FooterButton>
+      </Styled.FooterButton> */}
 
-      <Styled.FooterButton onClick={() => navigate("/perfil")} $active={isActive("/perfil")}>
+      {/* <Styled.FooterButton onClick={() => navigate("/perfil")} $active={isActive("/perfil")}>
         <FaUser />
         <Styled.Label>Perfil</Styled.Label>
-      </Styled.FooterButton>
+      </Styled.FooterButton> */}
     </Styled.FooterContainer>
   );
 }
@@ -41,7 +49,7 @@ export default function Footer() {
 const Styled = {
   FooterContainer: styled.footer`
     position: fixed;
-    bottom: 0;
+    bottom: -1px;
     width: 100%;
     height: 84px;
     background-color: #1b1b1b;
@@ -77,3 +85,16 @@ const Styled = {
     margin-top: 2px;
   `,
 };
+
+const rotate = keyframes`
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+`;
+
+const RotatingSpinner = styled(FaSpinner)`
+  animation: ${rotate} 2s linear infinite;
+`;

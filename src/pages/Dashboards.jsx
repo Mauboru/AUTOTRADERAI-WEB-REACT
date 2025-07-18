@@ -1,7 +1,7 @@
 import MainLayout from "../layouts/MainLayout";
 import styled from "styled-components";
 import { useEffect, useState } from "react";
-import { analise } from "../services/analise";
+import { getStocks } from "../services/analysis";
 
 export default function Dashboards() {
   const [acao, setAcao] = useState(null);
@@ -11,8 +11,7 @@ export default function Dashboards() {
   useEffect(() => {
     const buscarAcoes = async () => {
       try {
-        const resposta = await analise();
-        console.log(resposta)
+        const resposta = await getStocks();
         setAcao(resposta.data);
       } catch (err) {
         setErro("Erro ao buscar dados do backend.");
