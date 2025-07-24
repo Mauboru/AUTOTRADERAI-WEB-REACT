@@ -1,7 +1,7 @@
 import { styled, keyframes } from "styled-components";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
-import { FaHome, FaSearch, FaPlusCircle, FaChartPie, FaUser, FaSpinner } from "react-icons/fa";
+import { FaChartLine, FaTerminal, FaSearch, FaPlusCircle, FaUser, FaSpinner } from "react-icons/fa";
 
 export default function Footer() {
   const navigate = useNavigate();
@@ -9,14 +9,6 @@ export default function Footer() {
   const [spinning, setSpinning] = useState(false);
 
   const isActive = (path) => location.pathname === path;
-
-  const handleReload = () => {
-    setSpinning(true);
-    setTimeout(() => {
-      window.location.reload();
-    }, 2000);
-  };
-
   return (
     <Styled.FooterContainer>
       {/* <Styled.FooterButton onClick={() => navigate("/buscar")} $active={isActive("/buscar")}>
@@ -24,13 +16,14 @@ export default function Footer() {
         <Styled.Label>Buscar</Styled.Label>
       </Styled.FooterButton> */}
 
-      {/* <Styled.FooterButton onClick={() => navigate("/inserir")} $active={isActive("/inserir")}>
-        <FaPlusCircle />
-        <Styled.Label>Inserir</Styled.Label>
-      </Styled.FooterButton> */}
+      <Styled.FooterButton onClick={() => navigate("/")} $active={isActive("/")}>
+        <FaChartLine />
+        <Styled.Label>Ações</Styled.Label>
+      </Styled.FooterButton>
 
-      <Styled.FooterButton onClick={handleReload} $active={isActive("/")}>
-        {spinning ? <RotatingSpinner /> : <FaSpinner />}
+      <Styled.FooterButton onClick={() => navigate("/commands")} $active={isActive("/commands")}>
+        <FaTerminal />
+        <Styled.Label>Comandos</Styled.Label>
       </Styled.FooterButton>
 
       {/* <Styled.FooterButton onClick={() => navigate("/dashboards")} $active={isActive("/dashboards")}>
@@ -85,16 +78,3 @@ const Styled = {
     margin-top: 2px;
   `,
 };
-
-const rotate = keyframes`
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-`;
-
-const RotatingSpinner = styled(FaSpinner)`
-  animation: ${rotate} 2s linear infinite;
-`;

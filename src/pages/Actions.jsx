@@ -5,7 +5,7 @@ import { getStocks } from "../services/analysis";
 import { getSaldo } from "../services/balance";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
-export default function Home() {
+export default function Actions() {
   const [lista, setLista] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState(null);
@@ -41,15 +41,7 @@ export default function Home() {
 
   return (
     <MainLayout>
-      <Styled.Header>
-        <Styled.Title>Ações</Styled.Title>
-        {saldo !== null && (
-          <Styled.SaldoBox>
-            <p>Saldo disponível</p>
-            <h2>R$ {saldo}</h2>
-          </Styled.SaldoBox>
-        )}
-      </Styled.Header>
+      <Styled.Title>Ações</Styled.Title>
 
       {carregando && (
         <Styled.LoadingWrapper>
@@ -141,40 +133,12 @@ const Styled = {
     font-style: italic;
   `,
 
-  Header: styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-  `,
-
-  SaldoBox: styled.div`
-    background: #1e272e;
-    color: #f1f2f6;
-    padding: 12px 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    text-align: right;
-
-    p {
-      margin: 0;
-      font-size: 14px;
-      color: #dcdde1;
-    }
-
-    h2 {
-      margin: 4px 0 0;
-      font-size: 22px;
-      font-weight: 700;
-      color: #00ffab;
-    }
-  `,
-
   Title: styled.h6`
     font-size: 24px;
     margin-bottom: 24px;
     font-weight: 700;
     color: #1e272e;
+    text-align: center;
   `,
   
   Grid: styled.div`
