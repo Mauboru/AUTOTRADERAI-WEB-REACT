@@ -1,5 +1,5 @@
 import api from './api';
 
-export const getSaldo = async () => {
+export const getBalance = async () => {
     return await api.get('/balance/index');
 };

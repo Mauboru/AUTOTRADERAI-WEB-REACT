@@ -1,16 +1,21 @@
 import styled from "styled-components";
 import MainLayout from "../layouts/MainLayout";
-import { getSaldo } from "../services/balance";
+import { getBalance } from "../services/balance";
 import { getStocks } from "../services/analysis";
+import { getMyStocks, buyStock } from "../services/stocks";
+import { getTip } from "../services/gemini";
 import { useEffect, useState } from "react";
 
 export default function Commands() {
-  const [selectedStock, setSelectedStock] = useState("");
-  const [quantity, setQuantity] = useState("0");
   const [loading, setLoading] = useState(null);
   const [stocks, setStocks] = useState([]);
-  const [saldo, setSaldo] = useState(null);
+  const [balance, setBalance] = useState(null);
   const [portfolio, setPortfolio] = useState([]);
+  const [erro, setErro] = useState(null);
+  const [data, setData] = useState({ ticker: '', quantity: '', unit_price: '', total_price: '' });
+  const [showBot, setShowBot] = useState(false);
+  const [botResponse, setBotResponse] = useState('');
+  const [botLoading, setBotLoading] = useState(false);
 
   useEffect(() => {
     getStocks()
@@ -25,39 +30,73 @@ export default function Commands() {
         setLoading(false);
       });
 
-    getSaldo()
-      .then((res) => setSaldo(res.data.value))
-      .catch((err) => console.log("Erro ao buscar saldo", err));
-  }, []);
+    getMyStocks()
+      .then(res => {
+        setPortfolio(res.data);
+      })
+      .catch(err => {
+        console.log(err);
+        setErro("Erro ao buscar ações");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
 
-  const handleBuy = () => {
-    if (!selectedStock || !quantity) return alert("Preencha todos os campos.");
+    getBalance()
+      .then((res) => setBalance(res.data.value))
+      .catch((err) => console.log("Erro ao buscar balance", err));
+  }, [data]);
 
-    setPortfolio((prev) => {
-      const exists = prev.find((item) => item.stock === selectedStock);
-      if (exists) {
-        return prev.map((item) =>
-          item.stock === selectedStock
-            ? { ...item, quantity: item.quantity + parseInt(quantity) }
-            : item
-        );
+  const handleBuy = async () => {
+    try {
+      const rawPrice = data.unit_price || '';
+      const normalizedPrice = rawPrice.replace(/\./g, '').replace(',', '.');
+      const unitPrice = Number(normalizedPrice);
+      const qty = Number(data.quantity);
+
+      if (isNaN(unitPrice) || isNaN(qty)) {
+        setErro('Preço ou quantidade inválidos');
+        return;
       }
-      return [...prev, { stock: selectedStock, quantity: parseInt(quantity) }];
-    });
+      if (!data.ticker || isNaN(unitPrice) || isNaN(qty) || qty <= 0) {
+        setErro("Dados inválidos para compra");
+        return;
+      }
 
-    alert(`Compra efetuada:\nAção: ${selectedStock}\nQuantidade: ${quantity}`);
-    setQuantity("");
-    setSelectedStock("");
+      const total = unitPrice * qty;
+      const payload = {
+        ticker: data.ticker,
+        quantity: qty,
+        average_price: total,
+      };
+      await buyStock(payload);
+      setData({ ticker: '', quantity: '', unit_price: '', total_price: '' });
+    } catch (error) {
+      setErro(`${error.response.data.message}`);
+      console.log(error);
+    }
   };
+
+  const handleAskTip = async () => {
+    setBotLoading(true);
+    try {
+      const response = await getTip(); 
+      setBotResponse(response.data.tip);
+    } catch (error) {
+      setBotResponse(`Erro ao buscar dica: ${error}`);
+    } finally {
+      setBotLoading(false);
+    }
+  }
 
   return (
     <MainLayout>
       <Styled.Header>
         <Styled.Title>Comandos</Styled.Title>
-        {saldo !== null && (
+        {balance !== null && (
           <Styled.SaldoBox>
             <p>Saldo disponível</p>
-            <h2>R$ {saldo}</h2>
+            <h2>R$ {balance}</h2>
           </Styled.SaldoBox>
         )}
       </Styled.Header>
@@ -65,8 +104,18 @@ export default function Commands() {
       <Styled.Form>
         <Styled.FieldWrapper>
           <Styled.Select
-            value={selectedStock}
-            onChange={(e) => setSelectedStock(e.target.value)}
+            value={data.ticker}
+            onChange={(e) => {
+              const selectedTicker = e.target.value;
+              const selectedStock = stocks.find((s) => s.ticker === selectedTicker);
+              const averagePrice = selectedStock ? selectedStock.price : '';
+
+              setData((prev) => ({
+                ...prev,
+                ticker: selectedTicker,
+                unit_price: averagePrice,
+              }));
+            }}
           >
             <option value="">Ação</option>
             {stocks.map((stock) => (
@@ -75,33 +124,57 @@ export default function Commands() {
               </option>
             ))}
           </Styled.Select>
+
         </Styled.FieldWrapper>
 
         <Styled.FieldWrapper>
           <Styled.Input
             type="number"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
+            value={data.quantity}
+            onChange={(e) =>
+              setData((prev) => ({ ...prev, quantity: e.target.value }))
+            }
             min="0"
           />
         </Styled.FieldWrapper>
 
-        <Styled.Button onClick={handleBuy}>Comprar</Styled.Button>
+        <Styled.Button onClick={handleBuy} disabled={!data}>Comprar</Styled.Button>
       </Styled.Form>
 
+      {erro && (
+        <div style={{ color: 'red', marginTop: '10px' }}>
+          {erro}
+        </div>
+      )}
 
       {portfolio.length > 0 && (
         <Styled.Portfolio>
           <h3>Minhas Ações</h3>
           <ul>
             {portfolio.map((item) => (
-              <li key={item.stock}>
-                <strong>{item.stock}</strong>: {item.quantity} unidades
+              <li key={item.ticker}>
+                <strong>{item.ticker}</strong>: {item.quantity} unidades | R$ {item.average_price}
               </li>
             ))}
           </ul>
         </Styled.Portfolio>
       )}
+
+      <Styled.BotContainer>
+        <img
+          src="/bot.png"
+          alt="Bot"
+          onClick={() => setShowBot((prev) => !prev)}
+        />
+        {showBot && (
+          <Styled.BotDialog>
+            <p>{botLoading ? "Pensando..." : botResponse || "Clique em perguntar para uma dica."}</p>
+            <button onClick={handleAskTip} disabled={botLoading}>
+              Perguntar
+            </button>
+          </Styled.BotDialog>
+        )}
+      </Styled.BotContainer>
     </MainLayout>
   );
 }
@@ -220,6 +293,64 @@ const Styled = {
 
     &:hover {
       background-color: ${({ theme }) => theme.colors.primaryDark || "#27ae60"};
+    }
+
+    &:disabled {
+      background-color: #95a5a6;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+  `,
+
+  BotContainer: styled.div`
+    position: fixed;
+    bottom: 100px;
+    right: 20px;
+    z-index: 1000;
+
+    img {
+      width: 100px;
+      height: 100px;
+      cursor: pointer;
+      border-radius: 50%;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+  `,
+
+  BotDialog: styled.div`
+    position: absolute;
+    bottom: 100px;
+    right: 80px;
+    width: 260px;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+    font-size: 14px;
+    color: #2f3640;
+
+    p {
+      margin: 0 0 10px;
+    }
+
+    button {
+      background-color: #0984e3;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+
+      &:hover {
+        background-color: #74b9ff;
+      }
+
+      &:disabled {
+        background-color: #b2bec3;
+        cursor: not-allowed;
+      }
     }
   `,
 };

@@ -2,14 +2,12 @@ import { useEffect, useState } from "react";
 import styled from "styled-components";
 import MainLayout from "../layouts/MainLayout";
 import { getStocks } from "../services/analysis";
-import { getSaldo } from "../services/balance";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 export default function Actions() {
   const [lista, setLista] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState(null);
-  const [saldo, setSaldo] = useState(null);
   const [expandido, setExpandido] = useState(false);
 
   const limitarTexto = (texto, limite = 150) => {
@@ -30,11 +28,6 @@ export default function Actions() {
       .finally(() => {
         setCarregando(false);
       });
-    getSaldo()
-      .then(res => {
-        setSaldo(res.data.value);
-      })
-      .catch(err => console.log("Erro ao buscar saldo", err));
   }, []);
 
   const toggleExpandir = () => setExpandido(!expandido);
