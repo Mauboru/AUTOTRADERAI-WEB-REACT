@@ -2,7 +2,7 @@ import styled from "styled-components";
 import MainLayout from "../layouts/MainLayout";
 import { getBalance } from "../services/balance";
 import { getStocks } from "../services/analysis";
-import { getMyStocks, buyStock } from "../services/stocks";
+import { getMyStocks, buyStock, sellStock } from "../services/stocks";
 import { getTip } from "../services/gemini";
 import { useEffect, useState } from "react";
 
@@ -77,6 +77,35 @@ export default function Commands() {
     }
   };
 
+  const handleSell = async (ticker, quantity) => {
+    try {
+      if (!ticker || !quantity || quantity <= 0) {
+        setErro("Dados inválidos para venda");
+        return;
+      }
+
+      const stock = portfolio.find((s) => s.ticker === ticker);
+      if (!stock) {
+        setErro("Ação não encontrada no portfólio");
+        return;
+      }
+
+      await sellStock({ id: stock.id, quantity });
+
+      const [updatedPortfolio, updatedBalance] = await Promise.all([
+        getMyStocks(),
+        getBalance(),
+      ]);
+
+      setPortfolio(updatedPortfolio.data);
+      setBalance(updatedBalance.data.value);
+      setErro(null);
+    } catch (error) {
+      setErro(`${error.response?.data?.message || 'Erro ao vender ação'}`);
+      console.log(error);
+    }
+  };
+
   const handleAskTip = async () => {
     setBotLoading(true);
     try {
@@ -103,6 +132,7 @@ export default function Commands() {
 
       <Styled.Form>
         <Styled.FieldWrapper>
+          <label>Ação</label>
           <Styled.Select
             value={data.ticker}
             onChange={(e) => {
@@ -117,17 +147,17 @@ export default function Commands() {
               }));
             }}
           >
-            <option value="">Ação</option>
+            <option value="">Selecione</option>
             {stocks.map((stock) => (
               <option key={stock.ticker} value={stock.ticker}>
                 {stock.ticker} - R$ {stock.price}
               </option>
             ))}
           </Styled.Select>
-
         </Styled.FieldWrapper>
 
         <Styled.FieldWrapper>
+          <label>Quantidade</label>
           <Styled.Input
             type="number"
             value={data.quantity}
@@ -135,10 +165,13 @@ export default function Commands() {
               setData((prev) => ({ ...prev, quantity: e.target.value }))
             }
             min="0"
+            placeholder="Qtd"
           />
         </Styled.FieldWrapper>
 
-        <Styled.Button onClick={handleBuy} disabled={!data}>Comprar</Styled.Button>
+        <Styled.Button type="button" onClick={handleBuy} disabled={!data.ticker || !data.quantity}>
+          Comprar
+        </Styled.Button>
       </Styled.Form>
 
       {erro && (
@@ -147,18 +180,39 @@ export default function Commands() {
         </div>
       )}
 
-      {portfolio.length > 0 && (
-        <Styled.Portfolio>
-          <h3>Minhas Ações</h3>
-          <ul>
-            {portfolio.map((item) => (
-              <li key={item.ticker}>
-                <strong>{item.ticker}</strong>: {item.quantity} unidades | R$ {item.average_price}
-              </li>
-            ))}
-          </ul>
-        </Styled.Portfolio>
-      )}
+      <Styled.PortfolioList>
+        {portfolio.map((item) => (
+          <li key={item.ticker}>
+            <strong>{item.ticker}</strong>: {item.quantity} unidades | R$ {item.average_price}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
+              <Styled.Input
+                type="number"
+                min="1"
+                max={item.quantity}
+                placeholder="Qtd"
+                style={{ maxWidth: '80px' }}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setPortfolio((prev) =>
+                    prev.map((stock) =>
+                      stock.ticker === item.ticker
+                        ? { ...stock, sellQuantity: value }
+                        : stock
+                    )
+                  );
+                }}
+              />
+              <Styled.Button
+                onClick={() => handleSell(item.ticker, item.sellQuantity)}
+                disabled={!item.sellQuantity || item.sellQuantity <= 0}
+                style={{ padding: '8px 12px', fontSize: '14px' }}
+              >
+                Vender
+              </Styled.Button>
+            </div>
+          </li>
+        ))}
+      </Styled.PortfolioList>
 
       <Styled.BotContainer>
         <img
@@ -180,6 +234,17 @@ export default function Commands() {
 }
 
 const Styled = {
+  PortfolioList: styled.ul`
+    max-height: 300px;  /* ajuste conforme necessidade */
+    overflow-y: auto;
+    padding: 0;
+    margin-bottom: 90px;
+    list-style: none;
+    border: 1px solid #dcdde1;
+    border-radius: 6px;
+    background: #f1f2f6;
+  `,
+
   FieldWrapper: styled.div`
     display: flex;
     flex-direction: column;
@@ -245,7 +310,7 @@ const Styled = {
 
     h2 {
       margin: 4px 0 0;
-      font-size: 22px;
+      font-size: 16px;
       font-weight: 700;
       color: #00ffab;
     }
@@ -274,31 +339,40 @@ const Styled = {
     font-size: 16px;
   `,
 
-  Input: styled.input`
-    padding: 10px;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-    font-size: 16px;
-  `,
-
   Button: styled.button`
-    padding: 12px;
+    padding: 12px 20px;
     background-color: ${({ theme }) => theme.colors.primary || "#2ecc71"};
     color: #fff;
-    font-weight: bold;
+    font-weight: 600;
+    font-size: 16px;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     cursor: pointer;
-    transition: background 0.3s;
+    transition: background 0.3s ease;
 
     &:hover {
       background-color: ${({ theme }) => theme.colors.primaryDark || "#27ae60"};
     }
 
     &:disabled {
-      background-color: #95a5a6;
+      background-color: #bdc3c7;
       cursor: not-allowed;
-      opacity: 0.6;
+      opacity: 0.7;
+    }
+  `,
+
+  Input: styled.input`
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+    width: 100%;
+    box-sizing: border-box;
+
+    &:focus {
+      outline: none;
+      border-color: #0984e3;
+      box-shadow: 0 0 0 2px rgba(9, 132, 227, 0.2);
     }
   `,
 

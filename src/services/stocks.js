@@ -7,3 +7,7 @@ export const getMyStocks = async () => {
 export const buyStock = async (data) => {
     return await api.post('/stocks/create', data);
 };
+
+export const sellStock = async (data) => {
+    return await api.post('/stocks/sell', data);
+};
