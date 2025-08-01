@@ -63,11 +63,10 @@ export default function Commands() {
         return;
       }
 
-      const total = unitPrice * qty;
       const payload = {
         ticker: data.ticker,
         quantity: qty,
-        average_price: total,
+        average_price: unitPrice,
       };
       await buyStock(payload);
       setData({ ticker: '', quantity: '', unit_price: '', total_price: '' });
